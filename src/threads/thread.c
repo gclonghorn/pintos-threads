@@ -353,28 +353,19 @@ thread_foreach (thread_action_func *func, void *aux)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
-thread_set_priority (int new_priority)
+thread_set_priority (int new_priority) 
 {
-  enum intr_level old_level = intr_disable ();
-
-  struct thread *cur = thread_current ();
-  /*cur.priority has released donation,at once change priority*/
-  if(cur->priority==cur->original_priority) 
-  {
-    cur->priority=new_priority;
-    thread_yield();
-  }
-  /*cur still has donation,save priority but not change at once*/
-  cur->original_priority=new_priority;
-
-  intr_set_level (old_level);
+  thread_current ()->priority = new_priority;
+  thread_current ()->cur_priority = new_priority;
+  thread_priority_update(thread_current());
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  return thread_current ()->cur_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -496,13 +487,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->block_tick=0;
   t->priority = priority;
+  t->cur_priority = priority;
+  list_init(&t->lock_holding);
   t->magic = THREAD_MAGIC;
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem); 
   intr_set_level (old_level);
   /*newly added*/
-  t->original_priority = priority; 
-  list_init (&t->locks);
+  /*t->original_priority = priority; */
+  /*list_init (&t->locks);*/
   t->lock_waiting = NULL;
   t->nice = 0;
   t->recent_cpu = FP_CONST (0);
@@ -641,16 +634,16 @@ thread_block_judge (struct thread *t, void *aux UNUSED)
 bool
 thread_sort_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
+  return list_entry(a, struct thread, elem)->cur_priority > list_entry(b, struct thread, elem)->cur_priority;
 }
 
 /* Update priority when mlfqs  */
 void
 update_priority_mlfqs (struct thread *t,void *aux)
 {
-  t->priority = FP_INT_PART (FP_SUB_MIX (FP_SUB (FP_CONST (PRI_MAX), FP_DIV_MIX (t->recent_cpu, 4)), 2 * t->nice));
-  t->priority = t->priority < PRI_MIN ? PRI_MIN : t->priority;
-  t->priority = t->priority > PRI_MAX ? PRI_MAX : t->priority;
+  t->cur_priority = FP_INT_PART (FP_SUB_MIX (FP_SUB (FP_CONST (PRI_MAX), FP_DIV_MIX (t->recent_cpu, 4)), 2 * t->nice));
+  t->cur_priority = t->cur_priority < PRI_MIN ? PRI_MIN : t->cur_priority;
+  t->cur_priority = t->cur_priority > PRI_MAX ? PRI_MAX : t->cur_priority;
 }
 
  /*once per second the value of load_avg  must be updated and based on it the

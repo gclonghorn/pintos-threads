@@ -104,8 +104,9 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
    /* newly added*/
     int64_t block_tick;              /* Record the time the thread has been blocked. */
-    int original_priority;              /*  priority without donation*/
-    struct list locks;                  /* Locks that the thread is holding. */
+    /*int original_priority; */             /*  priority without donation*/
+    int cur_priority;                   /* Priority after getting from other threads */
+    struct list lock_holding;                  /* Locks that the thread is holding. */
     struct lock *lock_waiting;          /* The lock that the thread is waiting for. */
     int nice;                           /*integers*/
     fixed_t recent_cpu;                 /*real numbers*/
